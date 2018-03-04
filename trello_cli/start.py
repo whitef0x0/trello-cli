@@ -44,6 +44,3 @@ def main():
 
     # Execute the command.
     command.execute()
-
-if __name__ == '__main__':
-    main()

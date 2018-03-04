@@ -2,16 +2,16 @@ from setuptools import setup, find_packages
 
 setup(
     name='trello-cli',
-    version="0.0.1",
+    version="0.0.3",
     description='Trello CLI',
-    author='david_countable',
+    author='David Baldwynn',
     url='https://github.com/whitef0x0/trello-cli',
-    author_email='david@correspond.io',
+    author_email='david@countable.ca',
     license='BSD License',
     install_requires=["py-trello", "docopt", "python-dotenv"],
-    packages=find_packages(),
+    packages=['trello_cli'],
     entry_points={
-        'console_scripts': 'trello = trello.main:main'
+        'console_scripts': 'trello = trello_cli.start:main'
     },
     classifiers=[
         "Programming Language :: Python :: 2.7",
