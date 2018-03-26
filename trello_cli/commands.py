@@ -8,8 +8,8 @@ from docopt import docopt
 load_dotenv(find_dotenv())
 
 client = TrelloClient(
-  api_key="92d2246566b895225494edc0bac3b8bb",#os.environ.get("API_KEY"),
-  api_secret="1462b7066f47e72fe4c9f75960c3abd9d4bc29cb18e21f4eded8b6b50d122232"#os.environ.get("API_SECRET")
+  api_key=os.environ.get("API_KEY"),
+  api_secret=os.environ.get("API_SECRET")
 )
 
 def get_last_tuesday():
@@ -50,7 +50,7 @@ def assigned():
 def assigned_type(list_type):
     return client.search("@me list:" + list_type + " is:open", False, ["cards"])
 
-def moved_to_done(daterange, output_type):
+def moved_to(daterange, output_type, after_list_name):
     boards = client.list_boards()
 
     since_date = get_last_tuesday()
@@ -66,16 +66,17 @@ def moved_to_done(daterange, output_type):
         
         moved_to_done = []
         for action in actions:
-            new_object = {}
-            if output_type == 'json':
-                new_object["date"] = action["date"]
-            else:
-                new_object["date"] = datetime.strptime(action["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
-            new_object["card"] = action["data"]["card"]
-            new_object["board"] = action["data"]["board"]
-            new_object["prevList"] = action["data"]["listBefore"]
+            if action["data"]["listAfter"]["name"].lower() == after_list_name:
+                new_object = {}
+                if output_type == 'json':
+                    new_object["date"] = action["date"]
+                else:
+                    new_object["date"] = datetime.strptime(action["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                new_object["card"] = action["data"]["card"]
+                new_object["board"] = action["data"]["board"]
+                new_object["prevList"] = action["data"]["listBefore"]
 
-            moved_to_done.append(new_object)
+                moved_to_done.append(new_object)
 
         if len(moved_to_done) > 0:
             board_name = moved_to_done[0]["board"]["name"]
@@ -93,6 +94,17 @@ def moved_to_done(daterange, output_type):
         print(board_actions)
 
     return board_actions
+
+def moved_to_done(daterange, output_type):
+    return moved_to('done')
+
+def moved_to_sprint(daterange, output_type):
+    return moved_to('sprint')
+
+def moved_to_backlog(daterange, output_type):
+    return moved_to('backlog')
+
+
 
 valid_dateranges = ['today', 'week', 'month']
 
@@ -162,7 +174,7 @@ class Report(AbstractCommand):
     Generates Daily/Weekly/Monthly Report for User (defaults to weekly)
 
     usage:
-        report [--range=<valid_time_ranges>] [--output=<valid_ouput_formats>]
+        report <to_list_name> [--range=<valid_time_ranges>] [--output=<valid_ouput_formats>]
 
     options:
         --range=<valid_time_ranges>     Generate report for user during <valid_time_range> (default is 'weekly')
@@ -175,9 +187,10 @@ class Report(AbstractCommand):
         if '--output' not in self.args or self.args['--output'] is None:
             self.args['--output'] = 'console'
 
+        to_list_name = self.args.pop('<to_list_name>')
         if self.args['--range'] in valid_time_ranges and self.args['--output'] in valid_ouput_formats:
             print("Trello Ticket Report:\n--------------------\n")
-            actions = moved_to_done(self.args['--range'], self.args['--output'])
+            actions = moved_to(self.args['--range'], self.args['--output'], to_list_name)
         elif self.args['--range'] not in valid_time_ranges:
             print('{} is not a valid time range type. Valid ticket type are "day", "week" and "month"'.format(self.args['--range']))
             return
