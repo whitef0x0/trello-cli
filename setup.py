@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='trello-cli',
-    version="0.1.1",
+    version="1.1.1",
     description='Trello CLI',
     author='David Baldwynn',
     url='https://github.com/whitef0x0/trello-cli',
