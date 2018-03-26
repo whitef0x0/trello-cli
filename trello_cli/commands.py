@@ -1,14 +1,25 @@
 from dotenv import load_dotenv, find_dotenv
 from trello import TrelloClient
+from datetime import date, timedelta
+from datetime import datetime
 
 import os
 from docopt import docopt
 load_dotenv(find_dotenv())
 
 client = TrelloClient(
-  api_key=os.environ.get("API_KEY"),
-  api_secret=os.environ.get("API_SECRET")
+  api_key="92d2246566b895225494edc0bac3b8bb",#os.environ.get("API_KEY"),
+  api_secret="1462b7066f47e72fe4c9f75960c3abd9d4bc29cb18e21f4eded8b6b50d122232"#os.environ.get("API_SECRET")
 )
+
+def get_last_tuesday():
+    today = date.today()
+    offset = (today.weekday() - 2) % 7
+    last_tuesday = today - timedelta(days=offset)
+    return last_tuesday
+
+def get_first_day_of_month():
+    return date.today().replace(day=1)
 
 class AbstractCommand:
     """Base class for the commands"""
@@ -38,6 +49,42 @@ def assigned():
 
 def assigned_type(list_type):
     return client.search("@me list:" + list_type + " is:open", False, ["cards"])
+
+def moved_to_done(daterange):
+    boards = client.list_boards()
+
+    since_date = get_last_tuesday()
+    if daterange == 'day':
+        since_date = datetime.today()
+    elif daterange == 'month':
+        since_date = get_first_day_of_month()
+
+
+    board_actions = {}
+    for board in boards:
+        actions = board.fetch_actions("updateCard:idList", since=since_date, before=datetime.now(), action_limit=1000)
+        
+        moved_to_done = []
+        for action in actions:
+            new_object = {}
+            new_object["date"] = datetime.strptime(action["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            new_object["card"] = action["data"]["card"]
+            new_object["board"] = action["data"]["board"]
+            new_object["prevList"] = action["data"]["listBefore"]
+
+            moved_to_done.append(new_object)
+
+        print("len(moved_to_done): "+str(len(moved_to_done)))
+        if len(moved_to_done) > 0:
+            board_name = moved_to_done[0]["board"]["name"]
+            print("\n\nFor Board: " + board_name + "\n============================\n")
+
+            for obj in moved_to_done:
+                date_str = "{:%b %d, %Y}".format(new_object["date"])
+                print("Card: '" + obj["card"]["name"] + "' moved to 'Done' from '" + obj["prevList"]["name"] + "' on " + date_str)
+    
+            board_actions[board_name] = moved_to_done
+    return board_actions
 
 valid_dateranges = ['today', 'week', 'month']
 
@@ -77,7 +124,7 @@ class Assigned(AbstractCommand):
         assigned
 
     options:
-        --type=<meters>     Player jumps for <meters> meters.
+        --type=<valid_ticket_types>     View assigned tickets with type <type>
     """
 
     def execute(self):
@@ -97,4 +144,40 @@ class Assigned(AbstractCommand):
         else:
             print('{} is not a valid ticket type. Valid ticket type are "sprint" and "done"'.format(self.global_args['--type']))
             return
+
+
+valid_time_ranges = ["day", "week", "month"]
+valid_ouput_formats = ["console", "json", "csv"]
+
+class Report(AbstractCommand):
+    """
+    Generates Daily/Weekly/Monthly Report for User (defaults to weekly)
+
+    usage:
+        report [--range=<valid_time_ranges>|--output=<valid_ouput_formats>]
+
+    options:
+        --range=<valid_time_ranges>     Generate report for user during <valid_time_range> (default is 'weekly')
+        --output=<valid_ouput_formats>   Generate report with specified output (default is 'console')
+    """
+
+    def execute(self):
+        if '--range' not in self.args or self.args['--range'] is None:
+            self.args['--range'] = 'week'
+        if '--output' not in self.args or self.args['--output'] is None:
+            self.args['--output'] = 'console'
+
+        print(self.args['--output'])
+        if self.args['--range'] in valid_time_ranges and self.args['--output'] in valid_ouput_formats:
+            print("Trello Ticket Report:\n--------------------\n")
+            actions = moved_to_done(self.args['--range'])
+            for action in actions:
+                print(action)
+                print("\n")
+        elif self.args['--range'] not in valid_time_ranges:
+            print('{} is not a valid time range type. Valid ticket type are "day", "week" and "month"'.format(self.args['--range']))
+            return
+        else:
+            print('{} is not a valid ouput format. Valid output formats are "console", "json" and "csv"'.format(self.args['--output']))
+
 

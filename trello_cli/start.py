@@ -20,7 +20,7 @@ from docopt import DocoptExit
 import commands
 
 def main():
-    args = docopt(__doc__, version='0.0.1', options_first=True)
+    args = docopt(__doc__, version='0.0.3', options_first=True)
 
     # Retrieve the command to execute.
     command_name = args.pop('<command>').capitalize()
@@ -44,3 +44,5 @@ def main():
 
     # Execute the command.
     command.execute()
+
+main()
