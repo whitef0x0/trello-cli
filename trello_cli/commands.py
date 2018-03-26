@@ -3,7 +3,7 @@ from trello import TrelloClient
 from datetime import date, timedelta
 from datetime import datetime
 
-import os
+import os, json
 from docopt import docopt
 load_dotenv(find_dotenv())
 
@@ -50,7 +50,7 @@ def assigned():
 def assigned_type(list_type):
     return client.search("@me list:" + list_type + " is:open", False, ["cards"])
 
-def moved_to_done(daterange):
+def moved_to_done(daterange, output_type):
     boards = client.list_boards()
 
     since_date = get_last_tuesday()
@@ -67,23 +67,31 @@ def moved_to_done(daterange):
         moved_to_done = []
         for action in actions:
             new_object = {}
-            new_object["date"] = datetime.strptime(action["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            if output_type == 'json':
+                new_object["date"] = action["date"]
+            else:
+                new_object["date"] = datetime.strptime(action["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
             new_object["card"] = action["data"]["card"]
             new_object["board"] = action["data"]["board"]
             new_object["prevList"] = action["data"]["listBefore"]
 
             moved_to_done.append(new_object)
 
-        print("len(moved_to_done): "+str(len(moved_to_done)))
         if len(moved_to_done) > 0:
             board_name = moved_to_done[0]["board"]["name"]
-            print("\n\nFor Board: " + board_name + "\n============================\n")
+            if output_type is 'console':
+                print("\n\nFor Board: " + board_name + "\n============================\n")
 
-            for obj in moved_to_done:
-                date_str = "{:%b %d, %Y}".format(new_object["date"])
-                print("Card: '" + obj["card"]["name"] + "' moved to 'Done' from '" + obj["prevList"]["name"] + "' on " + date_str)
-    
+                for obj in moved_to_done:
+                    date_str = "{:%b %d, %Y}".format(new_object["date"])
+                    print("Card: '" + obj["card"]["name"] + "' moved to 'Done' from '" + obj["prevList"]["name"] + "' on " + date_str)
+        
             board_actions[board_name] = moved_to_done
+
+    if output_type == 'json':
+        board_actions = json.dumps(board_actions)
+        print(board_actions)
+
     return board_actions
 
 valid_dateranges = ['today', 'week', 'month']
@@ -92,7 +100,7 @@ class Completed(AbstractCommand):
     """
     Retrieves completed tickets for a user
     usage:
-        completed ( --date=<daterange>)
+        completed [--date=<daterange>]
     options:
         --date=<daterange>
     """
@@ -147,14 +155,14 @@ class Assigned(AbstractCommand):
 
 
 valid_time_ranges = ["day", "week", "month"]
-valid_ouput_formats = ["console", "json", "csv"]
+valid_ouput_formats = ["console", "json"]
 
 class Report(AbstractCommand):
     """
     Generates Daily/Weekly/Monthly Report for User (defaults to weekly)
 
     usage:
-        report [--range=<valid_time_ranges>|--output=<valid_ouput_formats>]
+        report [--range=<valid_time_ranges>] [--output=<valid_ouput_formats>]
 
     options:
         --range=<valid_time_ranges>     Generate report for user during <valid_time_range> (default is 'weekly')
@@ -167,17 +175,13 @@ class Report(AbstractCommand):
         if '--output' not in self.args or self.args['--output'] is None:
             self.args['--output'] = 'console'
 
-        print(self.args['--output'])
         if self.args['--range'] in valid_time_ranges and self.args['--output'] in valid_ouput_formats:
             print("Trello Ticket Report:\n--------------------\n")
-            actions = moved_to_done(self.args['--range'])
-            for action in actions:
-                print(action)
-                print("\n")
+            actions = moved_to_done(self.args['--range'], self.args['--output'])
         elif self.args['--range'] not in valid_time_ranges:
             print('{} is not a valid time range type. Valid ticket type are "day", "week" and "month"'.format(self.args['--range']))
             return
         else:
-            print('{} is not a valid ouput format. Valid output formats are "console", "json" and "csv"'.format(self.args['--output']))
+            print('{} is not a valid ouput format. Valid output formats are "console" and "json"'.format(self.args['--output']))
 
 
